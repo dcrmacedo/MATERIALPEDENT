@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel de Solicitações Pendentes</title>
+<meta name="theme-color" content="#12161B">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+<style>
+/* =========================================================
+   DESIGN TOKENS
+   ========================================================= */
+:root{
+  --bg:            #12161B;
+  --bg-elevated:   #171C22;
+  --surface:       #1E252C;
+  --surface-hover: #242C34;
+  --border:        #2B333C;
+  --text:          #E9ECEF;
+  --text-dim:      #9AA5B1;
+  --text-faint:    #5C6773;
+  --accent:        #C4703A;   /* copper - primary actions */
+  --accent-hover:  #D9824A;
+  --red:           #E5484D;
+  --red-bg:        rgba(229,72,77,0.12);
+  --yellow:        #F0A83C;
+  --yellow-bg:     rgba(240,168,60,0.12);
+  --green:         #3FCB8C;
+  --green-bg:      rgba(63,203,140,0.12);
+  --radius:        10px;
+  --radius-lg:     16px;
+  --shadow:        0 4px 16px rgba(0,0,0,0.35);
+  --shadow-lg:      0 12px 40px rgba(0,0,0,0.5);
+  --font-display:  'Oswald', sans-serif;
+  --font-body:     'Inter', sans-serif;
+  --font-mono:     'JetBrains Mono', monospace;
+}
+
+*{ box-sizing:border-box; margin:0; padding:0; }
+
+body.light-mode{
+  --bg:            #F3F1EC;
+  --bg-elevated:   #FFFFFF;
+  --surface:       #FFFFFF;
+  --surface-hover: #F6F4EF;
+  --border:        #E2DED4;
+  --text:          #23262B;
+  --text-dim:      #6B7178;
+  --text-faint:    #9BA1A8;
+  --shadow:        0 4px 16px rgba(30,20,10,0.08);
+  --shadow-lg:      0 12px 40px rgba(30,20,10,0.14);
+}
+
+html,body{
+  height:100%;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-body);
+  -webkit-font-smoothing:antialiased;
+  transition:background .25s ease, color .25s ease;
+}
+
+::selection{ background:var(--accent); color:#fff; }
+
+button{ font-family:inherit; cursor:pointer; border:none; background:none; color:inherit; }
+input, textarea{ font-family:inherit; }
+
+/* =========================================================
+   TOP BAR
+   ========================================================= */
+.topbar{
+  position:sticky; top:0; z-index:50;
+  background:var(--bg-elevated);
+  border-bottom:1px solid var(--border);
+  padding:14px 24px;
+  display:flex; align-items:center; gap:20px;
+  flex-wrap:wrap;
+}
+.brand{
+  display:flex; align-items:center; gap:10px;
+  font-family:var(--font-display);
+  font-size:20px; font-weight:600; letter-spacing:.5px;
+  color:var(--text);
+  white-space:nowrap;
+}
+.brand .bay-mark{
+  width:10px; height:22px; background:var(--accent); border-radius:2px;
+  position:relative;
+}
+.brand .bay-mark::after{
+  content:''; position:absolute; left:0; top:0; width:100%; height:8px;
+  background:var(--red); border-radius:2px 2px 0 0;
+}
+
+.tabs{ display:flex; gap:4px; background:var(--surface); padding:4px; border-radius:10px; border:1px solid var(--border); }
+.tab-btn{
+  padding:7px 16px; border-radius:7px; font-size:13px; font-weight:600;
+  color:var(--text-dim); transition:all .15s ease;
+}
+.tab-btn.active{ background:var(--accent); color:#fff; }
+.tab-btn:not(.active):hover{ background:var(--surface-hover); color:var(--text); }
+
+.search-wrap{
+  position:relative; flex:1; min-width:200px; max-width:340px;
+}
+.search-wrap .material-icons{
+  position:absolute; left:12px; top:50%; transform:translateY(-50%);
+  font-size:19px; color:var(--text-faint);
+}
+.search-wrap input{
+  width:100%; padding:9px 12px 9px 38px; border-radius:8px;
+  border:1px solid var(--border); background:var(--surface); color:var(--text);
+  font-size:13px; outline:none; transition:border-color .15s ease;
+}
+.search-wrap input:focus{ border-color:var(--accent); }
+
+.icon-btn{
+  width:38px; height:38px; border-radius:8px; display:flex; align-items:center; justify-content:center;
+  color:var(--text-dim); border:1px solid var(--border); background:var(--surface);
+  transition:all .15s ease;
+}
+.icon-btn:hover{ color:var(--text); background:var(--surface-hover); }
+
+.filter-select{
+  padding:8px 12px; border-radius:8px; border:1px solid var(--border);
+  background:var(--surface); color:var(--text-dim); font-size:13px; outline:none;
+}
+
+/* =========================================================
+   LAYOUT
+   ========================================================= */
+.page{ display:none; padding:24px; max-width:1600px; margin:0 auto; }
+.page.active{ display:block; }
+
+.kanban{
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:20px;
+  align-items:start;
+}
+@media (max-width: 980px){
+  .kanban{ grid-template-columns:1fr; }
+}
+
+.column{
+  background:var(--bg-elevated);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:16px;
+  min-height:200px;
+}
+.column-head{
+  display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;
+  padding-bottom:12px; border-bottom:2px dashed var(--border);
+}
+.column-title{
+  font-family:var(--font-display); font-size:14px; font-weight:600;
+  letter-spacing:1.2px; text-transform:uppercase;
+  display:flex; align-items:center; gap:9px;
+}
+.column-title .dot{ width:10px; height:10px; border-radius:2px; }
+.col-red .dot{ background:var(--red); }
+.col-yellow .dot{ background:var(--yellow); }
+.col-green .dot{ background:var(--green); }
+.column-count{
+  font-family:var(--font-mono); font-size:12px; color:var(--text-faint);
+  background:var(--surface); padding:2px 8px; border-radius:20px;
+}
+
+.card-list{ display:flex; flex-direction:column; gap:12px; }
+
+.card{
+  background:var(--surface);
+  border-radius:var(--radius);
+  padding:14px 14px 12px;
+  border-left:4px solid var(--border);
+  box-shadow:var(--shadow);
+  cursor:pointer;
+  transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+  animation:cardIn .35s ease;
+}
+@keyframes cardIn{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:translateY(0); } }
+.card:hover{ transform:translateY(-2px); box-shadow:var(--shadow-lg); background:var(--surface-hover); }
+.card.status-red{ border-left-color:var(--red); }
+.card.status-yellow{ border-left-color:var(--yellow); }
+.card.status-green{ border-left-color:var(--green); }
+
+.card-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px; }
+.card-client{ font-weight:600; font-size:14.5px; color:var(--text); line-height:1.3; }
+.card-badge{
+  font-family:var(--font-mono); font-size:10.5px; font-weight:700; padding:3px 8px;
+  border-radius:20px; white-space:nowrap; letter-spacing:.3px;
+}
+.card-badge.status-red{ background:var(--red-bg); color:var(--red); }
+.card-badge.status-yellow{ background:var(--yellow-bg); color:var(--yellow); }
+.card-badge.status-green{ background:var(--green-bg); color:var(--green); }
+
+.card-meta{ font-size:12px; color:var(--text-dim); margin-bottom:6px; }
+.card-time{
+  font-family:var(--font-mono); font-size:12.5px; font-weight:500;
+  display:flex; align-items:center; gap:5px; margin-bottom:10px;
+}
+.card-time .material-icons{ font-size:15px; }
+.card-time.status-red{ color:var(--red); }
+.card-time.status-yellow{ color:var(--yellow); }
+.card-time.status-green{ color:var(--green); }
+
+.card-footer{
+  display:flex; align-items:center; justify-content:space-between;
+  font-size:12px; color:var(--text-faint); padding-top:8px; border-top:1px solid var(--border);
+}
+.card-footer .material-icons{ font-size:15px; vertical-align:middle; margin-right:3px; }
+
+.empty-col{
+  text-align:center; padding:30px 10px; color:var(--text-faint); font-size:13px;
+}
+.empty-col .material-icons{ font-size:30px; display:block; margin:0 auto 8px; opacity:.5; }
+
+/* =========================================================
+   FAB
+   ========================================================= */
+.fab{
+  position:fixed; right:26px; bottom:26px; z-index:60;
+  width:58px; height:58px; border-radius:50%;
+  background:var(--accent); color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 8px 24px rgba(196,112,58,0.45);
+  transition:transform .18s ease, box-shadow .18s ease, background .18s ease;
+}
+.fab:hover{ transform:scale(1.07) rotate(90deg); background:var(--accent-hover); }
+.fab .material-icons{ font-size:28px; }
+
+/* =========================================================
+   MODAL
+   ========================================================= */
+.modal-overlay{
+  position:fixed; inset:0; background:rgba(8,10,13,0.6); backdrop-filter:blur(2px);
+  display:none; align-items:center; justify-content:center; z-index:100; padding:16px;
+  animation:fadeIn .18s ease;
+}
+.modal-overlay.open{ display:flex; }
+@keyframes fadeIn{ from{ opacity:0; } to{ opacity:1; } }
+
+.modal{
+  background:var(--bg-elevated); border:1px solid var(--border);
+  border-radius:var(--radius-lg); width:100%; max-width:480px;
+  max-height:88vh; overflow-y:auto;
+  box-shadow:var(--shadow-lg);
+  animation:modalIn .2s ease;
+}
+@keyframes modalIn{ from{ opacity:0; transform:translateY(10px) scale(.98); } to{ opacity:1; transform:translateY(0) scale(1); } }
+
+.modal-header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:18px 20px; border-bottom:1px solid var(--border);
+}
+.modal-header h2{ font-family:var(--font-display); font-size:17px; font-weight:600; letter-spacing:.3px; }
+.modal-close{ color:var(--text-faint); width:30px; height:30px; border-radius:6px; display:flex; align-items:center; justify-content:center; }
+.modal-close:hover{ background:var(--surface-hover); color:var(--text); }
+
+.modal-body{ padding:20px; display:flex; flex-direction:column; gap:16px; }
+
+.field label{
+  display:block; font-size:12px; font-weight:600; color:var(--text-dim);
+  text-transform:uppercase; letter-spacing:.6px; margin-bottom:6px;
+}
+.field input, .field textarea{
+  width:100%; padding:10px 12px; border-radius:8px;
+  border:1px solid var(--border); background:var(--surface); color:var(--text);
+  font-size:14px; outline:none; transition:border-color .15s ease;
+  resize:vertical;
+}
+.field input:focus, .field textarea:focus{ border-color:var(--accent); }
+.field input:disabled{ color:var(--text-faint); }
+.field .hint{ font-size:11px; color:var(--text-faint); margin-top:4px; }
+.field-row{ display:flex; gap:12px; }
+.field-row .field{ flex:1; }
+
+.modal-footer{
+  display:flex; justify-content:flex-end; gap:10px; padding:16px 20px;
+  border-top:1px solid var(--border);
+}
+.btn{
+  padding:10px 18px; border-radius:8px; font-size:13.5px; font-weight:600;
+  transition:all .15s ease;
+}
+.btn-ghost{ background:var(--surface); color:var(--text-dim); border:1px solid var(--border); }
+.btn-ghost:hover{ background:var(--surface-hover); color:var(--text); }
+.btn-primary{ background:var(--accent); color:#fff; }
+.btn-primary:hover{ background:var(--accent-hover); }
+.btn-danger{ background:var(--red-bg); color:var(--red); }
+.btn-danger:hover{ background:rgba(229,72,77,0.22); }
+.btn-success{ background:var(--green-bg); color:var(--green); }
+.btn-success:hover{ background:rgba(63,203,140,0.22); }
+
+.detail-row{ display:flex; flex-direction:column; gap:3px; }
+.detail-row .d-label{ font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--text-faint); font-weight:600; }
+.detail-row .d-value{ font-size:14px; color:var(--text); white-space:pre-wrap; }
+.detail-status-banner{
+  display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:10px;
+  font-family:var(--font-mono); font-weight:600; font-size:13.5px;
+}
+.detail-status-banner.status-red{ background:var(--red-bg); color:var(--red); }
+.detail-status-banner.status-yellow{ background:var(--yellow-bg); color:var(--yellow); }
+.detail-status-banner.status-green{ background:var(--green-bg); color:var(--green); }
+
+/* =========================================================
+   COMPLETED TABLE
+   ========================================================= */
+.completed-toolbar{
+  display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px;
+}
+.completed-table-wrap{
+  background:var(--bg-elevated); border:1px solid var(--border); border-radius:var(--radius-lg);
+  overflow:hidden;
+}
+table{ width:100%; border-collapse:collapse; }
+thead th{
+  text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.6px;
+  color:var(--text-faint); font-weight:700; padding:12px 16px; border-bottom:1px solid var(--border);
+  background:var(--surface);
+}
+tbody td{ padding:13px 16px; font-size:13.5px; border-bottom:1px solid var(--border); color:var(--text); }
+tbody tr{ transition:background .12s ease; cursor:pointer; }
+tbody tr:hover{ background:var(--surface-hover); }
+tbody tr:last-child td{ border-bottom:none; }
+.mono{ font-family:var(--font-mono); font-size:12.5px; color:var(--text-dim); }
+
+.empty-state{
+  text-align:center; padding:60px 20px; color:var(--text-faint);
+}
+.empty-state .material-icons{ font-size:44px; opacity:.4; margin-bottom:10px; }
+.empty-state h3{ color:var(--text-dim); font-family:var(--font-display); font-weight:600; margin-bottom:6px; }
+
+/* =========================================================
+   TOASTS
+   ========================================================= */
+.toast-stack{
+  position:fixed; top:20px; right:20px; z-index:200;
+  display:flex; flex-direction:column; gap:10px;
+}
+.toast{
+  background:var(--bg-elevated); border:1px solid var(--border); border-left:4px solid var(--accent);
+  border-radius:9px; padding:12px 16px; min-width:260px; max-width:340px;
+  box-shadow:var(--shadow-lg); display:flex; align-items:center; gap:10px;
+  font-size:13px; color:var(--text);
+  animation:toastIn .25s ease, toastOut .25s ease 3.2s forwards;
+}
+.toast.success{ border-left-color:var(--green); }
+.toast.error{ border-left-color:var(--red); }
+.toast.warn{ border-left-color:var(--yellow); }
+.toast .material-icons{ font-size:19px; }
+.toast.success .material-icons{ color:var(--green); }
+.toast.error .material-icons{ color:var(--red); }
+.toast.warn .material-icons{ color:var(--yellow); }
+@keyframes toastIn{ from{ opacity:0; transform:translateX(30px); } to{ opacity:1; transform:translateX(0); } }
+@keyframes toastOut{ to{ opacity:0; transform:translateX(30px); } }
+
+/* Loading skeleton */
+.skeleton{ background:linear-gradient(90deg, var(--surface) 25%, var(--surface-hover) 50%, var(--surface) 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:8px; height:96px; }
+@keyframes shimmer{ 0%{ background-position:200% 0; } 100%{ background-position:-200% 0; } }
+
+.config-banner{
+  background:var(--yellow-bg); color:var(--yellow); border:1px solid var(--yellow);
+  padding:12px 20px; font-size:13px; display:flex; gap:10px; align-items:center; margin:16px 24px 0;
+  border-radius:10px;
+}
+
+@media (max-width:600px){
+  .topbar{ padding:10px 14px; }
+  .page{ padding:14px; }
+  .brand span.brand-text{ display:none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ TOP BAR ============ -->
+<div class="topbar">
+  <div class="brand">
+    <span class="bay-mark"></span>
+    <span class="brand-text">Solicitações Pendentes</span>
+  </div>
+  <div class="tabs">
+    <button class="tab-btn active" data-page="kanban">Painel</button>
+    <button class="tab-btn" data-page="completed">Concluídas</button>
+  </div>
+  <div class="search-wrap">
+    <span class="material-icons">search</span>
+    <input type="text" id="searchInput" placeholder="Buscar por cliente...">
+  </div>
+  <select class="filter-select" id="statusFilter">
+    <option value="all">Todos os status</option>
+    <option value="red">Atrasado</option>
+    <option value="yellow">Perto do prazo</option>
+    <option value="green">No prazo</option>
+  </select>
+  <select class="filter-select" id="sortFilter">
+    <option value="priority">Prioridade (padrão)</option>
+    <option value="newest">Mais recentes</option>
+    <option value="oldest">Mais antigos</option>
+    <option value="waiting">Maior espera</option>
+  </select>
+  <button class="icon-btn" id="exportBtn" title="Exportar backup (JSON)">
+    <span class="material-icons">file_download</span>
+  </button>
+  <button class="icon-btn" id="importBtn" title="Importar backup (JSON)">
+    <span class="material-icons">file_upload</span>
+  </button>
+  <input type="file" id="importFileInput" accept="application/json" style="display:none;">
+  <button class="icon-btn" id="themeToggle" title="Alternar tema">
+    <span class="material-icons">dark_mode</span>
+  </button>
+</div>
+
+<div class="config-banner" id="configBanner" style="display:none;">
+  <span class="material-icons">info</span>
+  <span>Os dados são armazenados localmente neste navegador (IndexedDB). Eles não sincronizam entre dispositivos diferentes — apenas entre abas abertas neste mesmo navegador.</span>
+</div>
+
+<!-- ============ KANBAN PAGE ============ -->
+<div class="page active" id="page-kanban">
+  <div class="kanban" id="kanbanBoard">
+    <div class="column col-red">
+      <div class="column-head">
+        <div class="column-title"><span class="dot"></span>Atrasado</div>
+        <span class="column-count" id="count-red">0</span>
+      </div>
+      <div class="card-list" id="list-red"></div>
+    </div>
+    <div class="column col-yellow">
+      <div class="column-head">
+        <div class="column-title"><span class="dot"></span>Perto do Prazo</div>
+        <span class="column-count" id="count-yellow">0</span>
+      </div>
+      <div class="card-list" id="list-yellow"></div>
+    </div>
+    <div class="column col-green">
+      <div class="column-head">
+        <div class="column-title"><span class="dot"></span>No Prazo</div>
+        <span class="column-count" id="count-green">0</span>
+      </div>
+      <div class="card-list" id="list-green"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ COMPLETED PAGE ============ -->
+<div class="page" id="page-completed">
+  <div class="completed-toolbar">
+    <select class="filter-select" id="completedDateFilter">
+      <option value="all">Todo o período</option>
+      <option value="7">Últimos 7 dias</option>
+      <option value="30">Últimos 30 dias</option>
+      <option value="90">Últimos 90 dias</option>
+    </select>
+    <select class="filter-select" id="completedSortFilter">
+      <option value="newest">Concluídos recentemente</option>
+      <option value="oldest">Concluídos há mais tempo</option>
+      <option value="waiting-desc">Maior tempo de espera</option>
+      <option value="waiting-asc">Menor tempo de espera</option>
+    </select>
+  </div>
+  <div class="completed-table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>Data de Registro</th>
+          <th>Data de Conclusão</th>
+          <th>Tempo Total de Espera</th>
+          <th>Materiais</th>
+        </tr>
+      </thead>
+      <tbody id="completedTableBody"></tbody>
+    </table>
+  </div>
+  <div class="empty-state" id="completedEmpty" style="display:none;">
+    <span class="material-icons">inventory_2</span>
+    <h3>Nenhuma solicitação concluída</h3>
+    <p>Solicitações entregues aparecerão aqui.</p>
+  </div>
+</div>
+
+<!-- ============ FAB ============ -->
+<button class="fab" id="fabAdd" title="Nova solicitação">
+  <span class="material-icons">add</span>
+</button>
+
+<!-- ============ CREATE / EDIT MODAL ============ -->
+<div class="modal-overlay" id="formModalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="formModalTitle">Nova Solicitação</h2>
+      <button class="modal-close" data-close="formModalOverlay"><span class="material-icons">close</span></button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="f-client">Nome do Cliente *</label>
+        <input type="text" id="f-client" placeholder="Ex: Distribuidora Norte Ltda">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Data de Registro</label>
+          <input type="text" id="f-created" disabled>
+        </div>
+        <div class="field">
+          <label for="f-deadline">Prazo (dias) *</label>
+          <input type="number" id="f-deadline" min="1" placeholder="Ex: 7">
+        </div>
+      </div>
+      <div class="field">
+        <label for="f-materials">Materiais Pendentes *</label>
+        <textarea id="f-materials" rows="3" placeholder="Liste os materiais aguardando entrega..."></textarea>
+      </div>
+      <div class="field">
+        <label for="f-observations">Observações</label>
+        <textarea id="f-observations" rows="2" placeholder="Opcional"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" data-close="formModalOverlay">Cancelar</button>
+      <button class="btn btn-primary" id="f-save">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ DETAILS MODAL ============ -->
+<div class="modal-overlay" id="detailModalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Detalhes da Solicitação</h2>
+      <button class="modal-close" data-close="detailModalOverlay"><span class="material-icons">close</span></button>
+    </div>
+    <div class="modal-body" id="detailModalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="d-delete">Excluir</button>
+      <button class="btn btn-ghost" id="d-edit">Editar</button>
+      <button class="btn btn-success" id="d-complete">Concluir Entrega</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-stack" id="toastStack"></div>
+
+<script>
+/* =========================================================================
+   CONFIG — PERSISTÊNCIA LOCAL (IndexedDB)
+   -------------------------------------------------------------------------
+   Todos os dados ficam armazenados no navegador do usuário, no banco
+   IndexedDB "PendingRequestsDB", object store "requests" (keyPath: "id").
+   Não é necessário nenhum servidor ou configuração externa.
+
+   Limitação: os dados NÃO sincronizam entre dispositivos ou navegadores
+   diferentes — apenas entre abas abertas no mesmo navegador (via
+   BroadcastChannel, ver subscribeRealtime()).
+   ========================================================================= */
+const DB_NAME = 'PendingRequestsDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'requests';
+
+let dbInstance = null;
+
+function openDB(){
+  return new Promise((resolve, reject)=>{
+    if(dbInstance){ resolve(dbInstance); return; }
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = (event)=>{
+      const db = event.target.result;
+      if(!db.objectStoreNames.contains(STORE_NAME)){
+        const store = db.createObjectStore(STORE_NAME, { keyPath:'id' });
+        store.createIndex('completed', 'completed', { unique:false });
+        store.createIndex('created_at', 'created_at', { unique:false });
+      }
+    };
+    request.onsuccess = (event)=>{ dbInstance = event.target.result; resolve(dbInstance); };
+    request.onerror = (event)=>{ reject(event.target.error); };
+  });
+}
+
+async function idbGetAll(){
+  const db = await openDB();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.getAll();
+    req.onsuccess = ()=> resolve(req.result || []);
+    req.onerror = ()=> reject(req.error);
+  });
+}
+
+async function idbPut(row){
+  const db = await openDB();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put(row);
+    tx.oncomplete = ()=> resolve(true);
+    tx.onerror = ()=> reject(tx.error);
+  });
+}
+
+async function idbDelete(id){
+  const db = await openDB();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).delete(id);
+    tx.oncomplete = ()=> resolve(true);
+    tx.onerror = ()=> reject(tx.error);
+  });
+}
+
+/* Cross-tab sync: broadcasts a "changed" ping to any other open tab so it can refetch. */
+let broadcastChannel = null;
+try{ broadcastChannel = new BroadcastChannel('pending_requests_channel'); }catch(e){ /* older browsers: no cross-tab sync */ }
+function notifyOtherTabs(){
+  if(broadcastChannel) broadcastChannel.postMessage('changed');
+}
+
+/* =========================================================================
+   STATE
+   ========================================================================= */
+const state = {
+  requests: [],       // active (not completed)
+  completed: [],       // completed
+  searchTerm: '',
+  statusFilter: 'all',
+  sortFilter: 'priority',
+  completedDateFilter: 'all',
+  completedSortFilter: 'newest',
+  editingId: null,     // id currently being edited (null = create mode)
+  detailId: null,       // id currently shown in detail modal
+  notifiedYellow: new Set(),
+  notifiedRed: new Set(),
+};
+
+/* =========================================================================
+   UTILITIES
+   ========================================================================= */
+function uid(){ return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c=>{
+  const r = Math.random()*16|0, v = c==='x'?r:(r&0x3|0x8); return v.toString(16);
+});}
+
+function fmtDate(d){
+  const dt = (d instanceof Date) ? d : new Date(d);
+  return dt.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit', year:'numeric'}) + ' ' +
+         dt.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+}
+function fmtDateShort(d){
+  const dt = (d instanceof Date) ? d : new Date(d);
+  return dt.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit', year:'numeric'});
+}
+
+/** Computes status (red/yellow/green) + remaining/overdue label for a request. */
+function computeStatus(req){
+  const now = Date.now();
+  const created = new Date(req.created_at).getTime();
+  const deadline = new Date(req.deadline_date).getTime();
+  const total = deadline - created;
+  const remaining = deadline - now;
+
+  if(remaining <= 0){
+    const overdueMs = now - deadline;
+    return { status:'red', label: 'Atrasado há ' + humanizeDuration(overdueMs), remainingMs: remaining };
+  }
+  const pctRemaining = total > 0 ? (remaining / total) : 0;
+  if(pctRemaining <= 0.20){
+    return { status:'yellow', label: 'Restam ' + humanizeDuration(remaining), remainingMs: remaining };
+  }
+  return { status:'green', label: 'Restam ' + humanizeDuration(remaining), remainingMs: remaining };
+}
+
+function humanizeDuration(ms){
+  ms = Math.abs(ms);
+  const min = Math.floor(ms/60000);
+  const hrs = Math.floor(min/60);
+  const days = Math.floor(hrs/24);
+  if(days > 0){
+    const remHrs = hrs % 24;
+    return days + 'd' + (remHrs>0 ? ' '+remHrs+'h' : '');
+  }
+  if(hrs > 0){
+    const remMin = min % 60;
+    return hrs + 'h' + (remMin>0 ? ' '+remMin+'min' : '');
+  }
+  return Math.max(min,0) + 'min';
+}
+
+function countMaterials(text){
+  if(!text) return 0;
+  return text.split(/\n|,/).map(s=>s.trim()).filter(Boolean).length;
+}
+
+function showToast(message, type='success'){
+  const icons = { success:'check_circle', error:'error', warn:'warning' };
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.innerHTML = '<span class="material-icons">'+icons[type]+'</span><span>'+message+'</span>';
+  document.getElementById('toastStack').appendChild(el);
+  setTimeout(()=>el.remove(), 3500);
+}
+
+/* =========================================================================
+   DATA LAYER (IndexedDB)
+   ========================================================================= */
+async function fetchAll(){
+  try{
+    const all = await idbGetAll();
+    state.requests = all.filter(r=>!r.completed);
+    state.completed = all.filter(r=>r.completed);
+  }catch(err){
+    showToast('Erro ao carregar dados: ' + err.message, 'error');
+  }
+  renderKanban();
+  renderCompleted();
+}
+
+async function createRequest(payload){
+  const now = new Date();
+  const deadlineDate = new Date(now.getTime() + payload.deadlineDays*24*60*60*1000);
+  const row = {
+    id: uid(),
+    client_name: payload.clientName,
+    created_at: now.toISOString(),
+    deadline_days: payload.deadlineDays,
+    deadline_date: deadlineDate.toISOString(),
+    materials: payload.materials,
+    observations: payload.observations || '',
+    completed: false,
+    completed_at: null,
+    updated_at: now.toISOString(),
+  };
+  try{
+    await idbPut(row);
+  }catch(err){
+    showToast('Erro ao salvar: ' + err.message, 'error');
+    return false;
+  }
+  await fetchAll();
+  notifyOtherTabs();
+  showToast('Solicitação salva com sucesso.', 'success');
+  return true;
+}
+
+async function updateRequest(id, payload){
+  const existing = state.requests.find(r=>r.id===id) || state.completed.find(r=>r.id===id);
+  if(!existing) return false;
+  const created = new Date(existing.created_at);
+  const deadlineDate = new Date(created.getTime() + payload.deadlineDays*24*60*60*1000);
+  const row = {
+    ...existing,
+    client_name: payload.clientName,
+    deadline_days: payload.deadlineDays,
+    deadline_date: deadlineDate.toISOString(),
+    materials: payload.materials,
+    observations: payload.observations || '',
+    updated_at: new Date().toISOString(),
+  };
+  try{
+    await idbPut(row);
+  }catch(err){
+    showToast('Erro ao atualizar: ' + err.message, 'error');
+    return false;
+  }
+  await fetchAll();
+  notifyOtherTabs();
+  showToast('Solicitação atualizada.', 'success');
+  return true;
+}
+
+async function completeRequest(id){
+  const existing = state.requests.find(r=>r.id===id);
+  if(!existing) return false;
+  const row = {
+    ...existing,
+    completed:true,
+    completed_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  try{
+    await idbPut(row);
+  }catch(err){
+    showToast('Erro ao concluir: ' + err.message, 'error');
+    return false;
+  }
+  await fetchAll();
+  notifyOtherTabs();
+  showToast('Entrega concluída com sucesso.', 'success');
+  return true;
+}
+
+async function deleteRequest(id){
+  try{
+    await idbDelete(id);
+  }catch(err){
+    showToast('Erro ao excluir: ' + err.message, 'error');
+    return false;
+  }
+  await fetchAll();
+  notifyOtherTabs();
+  showToast('Solicitação excluída.', 'success');
+  return true;
+}
+
+/* Cross-tab sync: refetch whenever another open tab reports a change */
+function subscribeRealtime(){
+  if(!broadcastChannel) return;
+  broadcastChannel.onmessage = (event)=>{
+    if(event.data === 'changed') fetchAll();
+  };
+}
+
+/* =========================================================================
+   RENDERING - KANBAN
+   ========================================================================= */
+function getFilteredSorted(list){
+  let out = list.map(r => ({ ...r, _computed: computeStatus(r) }));
+
+  if(state.searchTerm){
+    const term = state.searchTerm.toLowerCase();
+    out = out.filter(r => r.client_name.toLowerCase().includes(term));
+  }
+  if(state.statusFilter !== 'all'){
+    out = out.filter(r => r._computed.status === state.statusFilter);
+  }
+  return out;
+}
+
+function sortWithinColumn(list){
+  // Oldest first by default within a column
+  return list.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+}
+
+function renderKanban(){
+  const filtered = getFilteredSorted(state.requests);
+
+  const byStatus = { red:[], yellow:[], green:[] };
+  filtered.forEach(r => byStatus[r._computed.status].push(r));
+
+  ['red','yellow','green'].forEach(status=>{
+    sortWithinColumn(byStatus[status]);
+  });
+
+  // Notifications for transitions into yellow/red
+  filtered.forEach(r=>{
+    if(r._computed.status === 'yellow' && !state.notifiedYellow.has(r.id)){
+      state.notifiedYellow.add(r.id);
+      showToast('“' + r.client_name + '” está perto do prazo.', 'warn');
+    }
+    if(r._computed.status === 'red' && !state.notifiedRed.has(r.id)){
+      state.notifiedRed.add(r.id);
+      showToast('“' + r.client_name + '” está atrasado.', 'error');
+    }
+  });
+
+  ['red','yellow','green'].forEach(status=>{
+    const listEl = document.getElementById('list-'+status);
+    const countEl = document.getElementById('count-'+status);
+    countEl.textContent = byStatus[status].length;
+
+    if(byStatus[status].length === 0){
+      listEl.innerHTML = '<div class="empty-col"><span class="material-icons">inbox</span>Nenhuma solicitação</div>';
+      return;
+    }
+
+    listEl.innerHTML = byStatus[status].map(r=>{
+      const matCount = countMaterials(r.materials);
+      return `
+      <div class="card status-${status}" data-id="${r.id}">
+        <div class="card-top">
+          <div class="card-client">${escapeHtml(r.client_name)}</div>
+          <div class="card-badge status-${status}">${statusLabel(status)}</div>
+        </div>
+        <div class="card-meta">Registrado em ${fmtDateShort(r.created_at)}</div>
+        <div class="card-time status-${status}">
+          <span class="material-icons">schedule</span>${r._computed.label}
+        </div>
+        <div class="card-footer">
+          <span><span class="material-icons">inventory_2</span>${matCount} ${matCount===1?'item':'itens'}</span>
+          <span>${r.deadline_days}d de prazo</span>
+        </div>
+      </div>`;
+    }).join('');
+  });
+
+  // apply sort filter as secondary global sort hint (priority sort is default; other options resort within filtered set flattened as needed)
+  applySortFilterVisualHint();
+
+  document.querySelectorAll('.card').forEach(card=>{
+    card.addEventListener('click', ()=> openDetailModal(card.dataset.id));
+  });
+}
+
+function statusLabel(status){
+  return status==='red' ? 'ATRASADO' : status==='yellow' ? 'ATENÇÃO' : 'NO PRAZO';
+}
+
+function applySortFilterVisualHint(){
+  // The "sort" dropdown reorders within the already-computed status buckets to respect
+  // the user's chosen priority, while red/yellow/green bucket order (priority) is preserved
+  // by rendering columns separately. Newest/oldest/waiting reorder within each column.
+  if(state.sortFilter === 'priority') return; // default: oldest-first already applied
+
+  ['red','yellow','green'].forEach(status=>{
+    const listEl = document.getElementById('list-'+status);
+    const cards = Array.from(listEl.querySelectorAll('.card'));
+    if(cards.length < 2) return;
+    const withData = cards.map(c=>{
+      const req = [...state.requests].find(r=>r.id===c.dataset.id);
+      return { el:c, created: req ? new Date(req.created_at).getTime() : 0 };
+    });
+    if(state.sortFilter === 'newest') withData.sort((a,b)=>b.created-a.created);
+    if(state.sortFilter === 'oldest') withData.sort((a,b)=>a.created-b.created);
+    if(state.sortFilter === 'waiting') withData.sort((a,b)=>a.created-b.created); // oldest = longest waiting
+    withData.forEach(item=>listEl.appendChild(item.el));
+  });
+}
+
+/* =========================================================================
+   RENDERING - COMPLETED
+   ========================================================================= */
+function renderCompleted(){
+  let list = [...state.completed];
+
+  if(state.searchTerm){
+    const term = state.searchTerm.toLowerCase();
+    list = list.filter(r=>r.client_name.toLowerCase().includes(term));
+  }
+  if(state.completedDateFilter !== 'all'){
+    const days = parseInt(state.completedDateFilter,10);
+    const cutoff = Date.now() - days*24*60*60*1000;
+    list = list.filter(r=> new Date(r.completed_at).getTime() >= cutoff);
+  }
+
+  list.sort((a,b)=>{
+    const ca = new Date(a.completed_at).getTime(), cb = new Date(b.completed_at).getTime();
+    const waitA = ca - new Date(a.created_at).getTime();
+    const waitB = cb - new Date(b.created_at).getTime();
+    switch(state.completedSortFilter){
+      case 'oldest': return ca-cb;
+      case 'waiting-desc': return waitB-waitA;
+      case 'waiting-asc': return waitA-waitB;
+      case 'newest':
+      default: return cb-ca;
+    }
+  });
+
+  const tbody = document.getElementById('completedTableBody');
+  const emptyEl = document.getElementById('completedEmpty');
+
+  if(list.length===0){
+    tbody.innerHTML = '';
+    emptyEl.style.display = 'block';
+    return;
+  }
+  emptyEl.style.display = 'none';
+
+  tbody.innerHTML = list.map(r=>{
+    const waitMs = new Date(r.completed_at) - new Date(r.created_at);
+    return `
+    <tr data-id="${r.id}">
+      <td>${escapeHtml(r.client_name)}</td>
+      <td class="mono">${fmtDateShort(r.created_at)}</td>
+      <td class="mono">${fmtDateShort(r.completed_at)}</td>
+      <td class="mono">${humanizeDuration(waitMs)}</td>
+      <td>${countMaterials(r.materials)} ${countMaterials(r.materials)===1?'item':'itens'}</td>
+    </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('tr').forEach(tr=>{
+    tr.addEventListener('click', ()=> openDetailModal(tr.dataset.id));
+  });
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : str;
+  return div.innerHTML;
+}
+
+/* =========================================================================
+   MODALS - CREATE / EDIT
+   ========================================================================= */
+const formModalOverlay = document.getElementById('formModalOverlay');
+const detailModalOverlay = document.getElementById('detailModalOverlay');
+
+function openCreateModal(){
+  state.editingId = null;
+  document.getElementById('formModalTitle').textContent = 'Nova Solicitação';
+  document.getElementById('f-client').value = '';
+  document.getElementById('f-created').value = fmtDate(new Date());
+  document.getElementById('f-deadline').value = '';
+  document.getElementById('f-materials').value = '';
+  document.getElementById('f-observations').value = '';
+  formModalOverlay.classList.add('open');
+  document.getElementById('f-client').focus();
+}
+
+function openEditModal(req){
+  state.editingId = req.id;
+  document.getElementById('formModalTitle').textContent = 'Editar Solicitação';
+  document.getElementById('f-client').value = req.client_name;
+  document.getElementById('f-created').value = fmtDate(req.created_at);
+  document.getElementById('f-deadline').value = req.deadline_days;
+  document.getElementById('f-materials').value = req.materials;
+  document.getElementById('f-observations').value = req.observations || '';
+  detailModalOverlay.classList.remove('open');
+  formModalOverlay.classList.add('open');
+}
+
+document.getElementById('f-save').addEventListener('click', async ()=>{
+  const clientName = document.getElementById('f-client').value.trim();
+  const deadlineDays = parseInt(document.getElementById('f-deadline').value, 10);
+  const materials = document.getElementById('f-materials').value.trim();
+  const observations = document.getElementById('f-observations').value.trim();
+
+  if(!clientName || !deadlineDays || deadlineDays <= 0 || !materials){
+    showToast('Preencha todos os campos obrigatórios.', 'error');
+    return;
+  }
+
+  const payload = { clientName, deadlineDays, materials, observations };
+  let ok;
+  if(state.editingId){
+    ok = await updateRequest(state.editingId, payload);
+  } else {
+    ok = await createRequest(payload);
+  }
+  if(ok) formModalOverlay.classList.remove('open');
+});
+
+/* =========================================================================
+   MODAL - DETAILS
+   ========================================================================= */
+function openDetailModal(id){
+  const req = state.requests.find(r=>r.id===id) || state.completed.find(r=>r.id===id);
+  if(!req) return;
+  state.detailId = id;
+
+  const computed = computeStatus(req);
+  const isCompleted = !!req.completed;
+  const body = document.getElementById('detailModalBody');
+
+  let html = '';
+  if(!isCompleted){
+    html += `<div class="detail-status-banner status-${computed.status}">
+      <span class="material-icons">schedule</span>${computed.label}
+    </div>`;
+  } else {
+    const waitMs = new Date(req.completed_at) - new Date(req.created_at);
+    html += `<div class="detail-status-banner status-green">
+      <span class="material-icons">task_alt</span>Entregue — tempo total de espera: ${humanizeDuration(waitMs)}
+    </div>`;
+  }
+
+  html += `
+    <div class="detail-row"><span class="d-label">Cliente</span><span class="d-value">${escapeHtml(req.client_name)}</span></div>
+    <div class="detail-row"><span class="d-label">Data de Registro</span><span class="d-value">${fmtDate(req.created_at)}</span></div>
+    <div class="detail-row"><span class="d-label">Prazo</span><span class="d-value">${req.deadline_days} dias (até ${fmtDate(req.deadline_date)})</span></div>
+    ${isCompleted ? `<div class="detail-row"><span class="d-label">Concluído em</span><span class="d-value">${fmtDate(req.completed_at)}</span></div>` : ''}
+    <div class="detail-row"><span class="d-label">Materiais Pendentes</span><span class="d-value">${escapeHtml(req.materials)}</span></div>
+    <div class="detail-row"><span class="d-label">Observações</span><span class="d-value">${req.observations ? escapeHtml(req.observations) : '—'}</span></div>
+  `;
+  body.innerHTML = html;
+
+  const editBtn = document.getElementById('d-edit');
+  const completeBtn = document.getElementById('d-complete');
+  const deleteBtn = document.getElementById('d-delete');
+
+  editBtn.style.display = isCompleted ? 'none' : 'inline-block';
+  completeBtn.style.display = isCompleted ? 'none' : 'inline-block';
+
+  editBtn.onclick = ()=> openEditModal(req);
+  deleteBtn.onclick = async ()=>{
+    if(confirm('Tem certeza que deseja excluir a solicitação de "'+req.client_name+'"? Esta ação não pode ser desfeita.')){
+      const ok = await deleteRequest(req.id);
+      if(ok) detailModalOverlay.classList.remove('open');
+    }
+  };
+  completeBtn.onclick = async ()=>{
+    if(confirm('Confirmar a conclusão da entrega para "'+req.client_name+'"?')){
+      const ok = await completeRequest(req.id);
+      if(ok) detailModalOverlay.classList.remove('open');
+    }
+  };
+
+  detailModalOverlay.classList.add('open');
+}
+
+/* =========================================================================
+   BACKUP - EXPORTAR / IMPORTAR (JSON)
+   ========================================================================= */
+async function exportBackup(){
+  try{
+    const all = await idbGetAll();
+    const payload = {
+      app: 'painel-solicitacoes-pendentes',
+      exportedAt: new Date().toISOString(),
+      records: all,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `solicitacoes-backup-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast('Backup exportado com sucesso.', 'success');
+  }catch(err){
+    showToast('Erro ao exportar backup: ' + err.message, 'error');
+  }
+}
+
+function isValidRecord(r){
+  return r && typeof r.id === 'string' && typeof r.client_name === 'string' &&
+         typeof r.created_at === 'string' && typeof r.deadline_date === 'string' &&
+         typeof r.materials === 'string';
+}
+
+async function importBackup(file){
+  try{
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const records = Array.isArray(parsed) ? parsed : parsed.records;
+    if(!Array.isArray(records)) throw new Error('Formato de arquivo inválido.');
+
+    const valid = records.filter(isValidRecord);
+    if(valid.length === 0) throw new Error('Nenhum registro válido encontrado no arquivo.');
+
+    const confirmMsg = `Importar ${valid.length} solicitação(ões)? Registros com o mesmo ID serão substituídos; os demais serão adicionados.`;
+    if(!confirm(confirmMsg)) return;
+
+    for(const r of valid){ await idbPut(r); }
+    await fetchAll();
+    notifyOtherTabs();
+    showToast(`${valid.length} solicitação(ões) importada(s) com sucesso.`, 'success');
+  }catch(err){
+    showToast('Erro ao importar backup: ' + err.message, 'error');
+  }
+}
+
+/* =========================================================================
+   EVENT WIRING
+   ========================================================================= */
+document.getElementById('fabAdd').addEventListener('click', openCreateModal);
+
+document.querySelectorAll('[data-close]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.getElementById(btn.dataset.close).classList.remove('open');
+  });
+});
+[formModalOverlay, detailModalOverlay].forEach(overlay=>{
+  overlay.addEventListener('click', (e)=>{ if(e.target === overlay) overlay.classList.remove('open'); });
+});
+
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.getElementById('page-'+btn.dataset.page).classList.add('active');
+  });
+});
+
+document.getElementById('searchInput').addEventListener('input', (e)=>{
+  state.searchTerm = e.target.value.trim();
+  renderKanban();
+  renderCompleted();
+});
+document.getElementById('statusFilter').addEventListener('change', (e)=>{
+  state.statusFilter = e.target.value;
+  renderKanban();
+});
+document.getElementById('sortFilter').addEventListener('change', (e)=>{
+  state.sortFilter = e.target.value;
+  renderKanban();
+});
+document.getElementById('completedDateFilter').addEventListener('change', (e)=>{
+  state.completedDateFilter = e.target.value;
+  renderCompleted();
+});
+document.getElementById('completedSortFilter').addEventListener('change', (e)=>{
+  state.completedSortFilter = e.target.value;
+  renderCompleted();
+});
+
+document.getElementById('exportBtn').addEventListener('click', exportBackup);
+document.getElementById('importBtn').addEventListener('click', ()=>{
+  document.getElementById('importFileInput').click();
+});
+document.getElementById('importFileInput').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(file) importBackup(file);
+  e.target.value = ''; // allow re-selecting the same file later
+});
+
+document.getElementById('themeToggle').addEventListener('click', ()=>{
+  document.body.classList.toggle('light-mode');
+  const icon = document.querySelector('#themeToggle .material-icons');
+  icon.textContent = document.body.classList.contains('light-mode') ? 'light_mode' : 'dark_mode';
+});
+
+/* =========================================================================
+   INIT
+   ========================================================================= */
+function init(){
+  document.getElementById('configBanner').style.display = 'flex';
+  fetchAll();
+  subscribeRealtime();
+  // Recompute statuses (and re-render) every minute, no page refresh needed
+  setInterval(()=>{ renderKanban(); }, 60000);
+
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js').catch(err=>{
+      console.warn('Falha ao registrar service worker (offline pode não funcionar):', err);
+    });
+  }
+}
+init();
+</script>
+</body>
+</html>
